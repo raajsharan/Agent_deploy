@@ -29,6 +29,27 @@ function jwtExpiryMs(token) {
   }
 }
 
+/**
+ * Turns a bare HTTP status into an actionable hint, the same way the
+ * Inventory Tool's Endpoint Central diagnostics do (e.g. flagging IAM0027 /
+ * "no endpoint permissions" instead of a bare status code).
+ */
+function loginFailureHint(status) {
+  if (status === 405) {
+    return " — 405 usually means INVENTORY_LOGIN_URL is wrong (it's pointing at a path that doesn't accept POST, like the site root instead of the actual login endpoint).";
+  }
+  if (status === 404) {
+    return " — 404 means that path doesn't exist on this server. Double-check INVENTORY_LOGIN_URL.";
+  }
+  if (status === 401 || status === 403) {
+    return " — check INVENTORY_USERNAME/INVENTORY_PASSWORD.";
+  }
+  if (status >= 500) {
+    return " — the inventory server itself reported an error; check its logs.";
+  }
+  return "";
+}
+
 async function login() {
   const { loginUrl, username, password } = config.inventory;
   if (!loginUrl || !username || !password) {
@@ -38,13 +59,18 @@ async function login() {
     );
   }
 
-  const res = await fetch(loginUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ email: username, password }),
-  });
+  let res;
+  try {
+    res = await fetch(loginUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email: username, password }),
+    });
+  } catch (err) {
+    throw new Error(`Could not reach INVENTORY_LOGIN_URL (${loginUrl}): ${err.message}`);
+  }
   if (!res.ok) {
-    throw new Error(`Inventory API login failed: ${res.status} ${res.statusText}`);
+    throw new Error(`Inventory API login failed: ${res.status} ${res.statusText}${loginFailureHint(res.status)}`);
   }
   const body = await res.json();
   if (!body.token) {

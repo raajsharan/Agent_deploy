@@ -3,6 +3,7 @@ const fs = require("fs");
 const { config, updateConfigSection } = require("../config");
 const inventoryService = require("../services/inventoryService");
 const { fetchManagedComputers } = require("../services/endpointCentralService");
+const { checkReachability } = require("../utils/checkUrl");
 
 const router = express.Router();
 
@@ -82,6 +83,16 @@ router.put("/:section", (req, res) => {
   if (req.params.section === "inventory") inventoryService.resetAuthCache();
 
   res.json({ ok: true });
+});
+
+/**
+ * Fast reachability probe for a single URL (no auth) - takes the URL
+ * straight from the request body, so it can check a value the admin has
+ * typed but not saved yet.
+ */
+router.post("/check-url", async (req, res) => {
+  const result = await checkReachability((req.body || {}).url);
+  res.json(result);
 });
 
 router.post("/test/inventory", async (req, res) => {

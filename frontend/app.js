@@ -295,8 +295,8 @@ async function openSettingsDrawer() {
             section: "inventory",
             title: "Inventory API",
             fields: [
-              { key: "url", label: "API URL", value: settings.inventory.url },
-              { key: "loginUrl", label: "Login URL", value: settings.inventory.loginUrl },
+              { key: "url", label: "API URL", value: settings.inventory.url, checkable: true },
+              { key: "loginUrl", label: "Login URL", value: settings.inventory.loginUrl, checkable: true },
               { key: "username", label: "Username", value: settings.inventory.username },
               { key: "password", label: "Password", type: "password", configured: settings.inventory.passwordConfigured },
               { key: "token", label: "Static API token (alternative to login)", type: "password", configured: settings.inventory.tokenConfigured },
@@ -307,7 +307,7 @@ async function openSettingsDrawer() {
             section: "endpoint-central",
             title: "Endpoint Central API",
             fields: [
-              { key: "baseUrl", label: "Base URL", value: settings.endpointCentral.baseUrl },
+              { key: "baseUrl", label: "Base URL", value: settings.endpointCentral.baseUrl, checkable: true },
               { key: "computersPath", label: "Computers path", value: settings.endpointCentral.computersPath },
               { key: "apiKey", label: "API key", type: "password", configured: settings.endpointCentral.apiKeyConfigured },
             ],
@@ -332,6 +332,9 @@ async function openSettingsDrawer() {
 
   root.querySelectorAll("[data-test]").forEach((btn) => {
     btn.addEventListener("click", () => runSettingsTest(btn.dataset.test));
+  });
+  root.querySelectorAll("[data-checkurl]").forEach((btn) => {
+    btn.addEventListener("click", () => runUrlCheck(btn));
   });
   root.querySelectorAll("form[data-section]").forEach((form) => {
     form.addEventListener("submit", (e) => {
@@ -367,11 +370,54 @@ function renderSettingsField(f) {
       </label>`;
   }
   const value = f.value != null ? escapeHtml(String(f.value)) : "";
+  const checkRow = f.checkable
+    ? `<div class="url-check-row">
+        <button type="button" class="btn btn-secondary btn-xs" data-checkurl="${f.key}">Check URL</button>
+        <span class="url-check-result" data-checkurl-result="${f.key}"></span>
+      </div>`
+    : "";
   return `
     <label class="settings-field-edit">
       <span>${f.label}</span>
       <input type="${f.type || "text"}" name="${f.key}" value="${value}" />
+      ${checkRow}
     </label>`;
+}
+
+/**
+ * Fast, no-auth reachability check for a single URL field - reads the
+ * input's current (possibly unsaved) value, same as the equivalent "Check
+ * URL" feature in the Inventory Tool app this pattern was adapted from.
+ */
+async function runUrlCheck(btn) {
+  const key = btn.dataset.checkurl;
+  const form = btn.closest("form");
+  const input = form.querySelector(`input[name="${key}"]`);
+  const resultEl = form.querySelector(`[data-checkurl-result="${key}"]`);
+  const url = input.value.trim();
+
+  if (!url) {
+    resultEl.innerHTML = `<span class="settings-status fail">Enter a URL first</span>`;
+    return;
+  }
+
+  btn.disabled = true;
+  resultEl.innerHTML = `<span class="settings-status testing">Checking…</span>`;
+  try {
+    const res = await apiFetch("/api/settings/check-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    const body = await res.json();
+    resultEl.innerHTML = body.reachable
+      ? `<span class="settings-status ok">✓ Reachable (HTTP ${body.status})</span>`
+      : `<span class="settings-status fail">✗ Unreachable — ${escapeHtml(body.error)}</span>`;
+  } catch (e) {
+    resultEl.innerHTML = `<span class="settings-status fail">✗ ${escapeHtml(e.message)}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function closeSettingsDrawer() {
