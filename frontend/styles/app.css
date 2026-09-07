@@ -292,6 +292,69 @@ table.servers td.muted { color: var(--color-text-muted); font-size: 13px; }
 
 .drawer-body .log-line.err { color: #FF9E80; }
 
+/* ---- Settings drawer ---- */
+.settings-drawer { width: 560px; }
+
+.settings-body {
+  font-family: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.settings-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-4) var(--space-5);
+}
+
+.settings-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.settings-card-header h3 {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-heading);
+  margin: 0;
+}
+
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+.settings-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-size: 13px;
+  padding: 3px 0;
+}
+
+.settings-field span { color: var(--color-text-muted); }
+
+.settings-field code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--color-text);
+  text-align: right;
+  word-break: break-all;
+}
+
+.settings-result {
+  margin-top: var(--space-3);
+  font-size: 13px;
+}
+
+.settings-status { font-weight: 500; }
+.settings-status.ok { color: var(--color-success); }
+.settings-status.fail { color: var(--color-danger); }
+.settings-status.testing { color: var(--color-text-muted); }
+
 .toast {
   position: fixed;
   bottom: 24px;

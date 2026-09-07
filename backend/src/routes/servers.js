@@ -37,6 +37,11 @@ async function refreshServers() {
       hostname: inv.hostname,
       ip: inv.ip || null,
       os: inv.os || null,
+      // Used by deploymentService to pull this server's own deployment
+      // credential from the inventory tool at deploy time (see
+      // inventoryService.fetchAssetPassword) - never the password itself.
+      assetId: inv.raw?.id || null,
+      credentialUsername: inv.raw?.asset_username || null,
       agentStatus: ec ? ec.agentStatus : "Unknown",
       agentInstalled: ec ? ec.agentInstalled : false,
       lastContact: ec ? ec.lastContact : null,

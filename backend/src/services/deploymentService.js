@@ -3,6 +3,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const { config } = require("../config");
 const store = require("../store");
+const { fetchAssetPassword } = require("./inventoryService");
 
 const SCRIPT_PATH = path.join(__dirname, "..", "..", "scripts", "Install-AgentRemote.ps1");
 
@@ -63,10 +64,60 @@ function startDeployments(hostnames, io) {
   return jobs.map(({ id, hostname }) => ({ id, hostname }));
 }
 
+/**
+ * Fails a job outright, before any PowerShell process is spawned (used when
+ * we can't resolve a deployment credential for the target).
+ */
+async function failJob(job, io, message) {
+  await store.appendJobLog(job.id, `ERROR: ${message}`);
+  await store.updateJob(job.id, { status: "Failed", message, finishedAt: new Date().toISOString() });
+  io.emit("job:log", { jobId: job.id, line: `ERROR: ${message}` });
+  io.emit("job:status", { jobId: job.id, hostname: job.hostname, status: "Failed", message });
+}
+
+/**
+ * Resolves which credential to deploy with for one server:
+ *  - Prefer the server's own credential from the inventory tool (per-asset
+ *    local admin account) when the merged server record has one.
+ *  - Otherwise fall back to the single shared DEPLOY_CREDENTIAL_FILE service
+ *    account (the original design).
+ *
+ * Returns either { mode: "asset", username, password } or
+ * { mode: "file", credentialFile }. The password (if any) is a live secret
+ * held only in memory - never logged, persisted, or passed as a CLI arg.
+ */
+async function resolveCredential(hostname) {
+  const server = store.getServers()[hostname];
+  if (server && server.assetId && server.credentialUsername) {
+    const password = await fetchAssetPassword(server.assetId);
+    return { mode: "asset", username: server.credentialUsername, password };
+  }
+  if (config.deployment.credentialFile) {
+    return { mode: "file", credentialFile: config.deployment.credentialFile };
+  }
+  throw new Error(
+    `No deployment credential available for ${hostname} (no inventory credential on file, ` +
+      "and DEPLOY_CREDENTIAL_FILE is not set)."
+  );
+}
+
 function runSingleDeployment(job, io) {
   return new Promise(async (resolve) => {
     await store.updateJob(job.id, { status: "Running" });
     io.emit("job:status", { jobId: job.id, hostname: job.hostname, status: "Running" });
+
+    let credential;
+    try {
+      credential = await resolveCredential(job.hostname);
+    } catch (err) {
+      await failJob(job, io, `Could not resolve a deployment credential: ${err.message}`);
+      return resolve();
+    }
+
+    const credentialArgs =
+      credential.mode === "asset"
+        ? ["-Username", credential.username]
+        : ["-CredentialFile", credential.credentialFile];
 
     const args = [
       "-NoProfile",
@@ -79,11 +130,18 @@ function runSingleDeployment(job, io) {
       job.hostname,
       "-InstallerPath",
       config.deployment.installerLocalPath,
-      "-CredentialFile",
-      config.deployment.credentialFile,
+      ...credentialArgs,
     ];
 
     const child = spawn("powershell.exe", args, { windowsHide: true });
+
+    // Hand the password to the script over stdin (never as a CLI arg, which
+    // would be visible to anything that lists the process table) and never
+    // log it. The script reads one line from stdin when -Username is used.
+    if (credential.mode === "asset") {
+      child.stdin.write(credential.password + "\n");
+    }
+    child.stdin.end();
 
     // Without this handler, a spawn failure (e.g. powershell.exe not found,
     // permissions issue) throws an uncaught 'error' event and crashes the

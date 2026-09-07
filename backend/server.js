@@ -9,6 +9,7 @@ const { config, warnIfMissing } = require("./src/config");
 const { router: serversRouter } = require("./src/routes/servers");
 const { buildDeployRouter } = require("./src/routes/deploy");
 const { router: authRouter, requireAuth } = require("./src/routes/auth");
+const { router: settingsRouter } = require("./src/routes/settings");
 const userStore = require("./src/userStore");
 
 warnIfMissing();
@@ -49,6 +50,7 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 // ---- Everything else under /api requires a logged-in session ----
 app.use("/api/servers", requireAuth, serversRouter);
 app.use("/api/deploy", requireAuth, buildDeployRouter(io));
+app.use("/api/settings", requireAuth, settingsRouter);
 
 // ---- Frontend ----
 const FRONTEND_DIR = path.join(__dirname, "..", "frontend");

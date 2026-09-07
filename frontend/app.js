@@ -276,6 +276,139 @@ function escapeHtml(str) {
 }
 
 // ---------------------------------------------------------------------
+// Settings / connectivity drawer
+// ---------------------------------------------------------------------
+
+async function openSettingsDrawer() {
+  const settings = await apiFetch("/api/settings").then((r) => r.json());
+
+  const root = document.getElementById("drawerRoot");
+  root.innerHTML = `
+    <div class="drawer-overlay" id="settingsOverlay">
+      <div class="drawer settings-drawer">
+        <div class="drawer-header">
+          <h2>Settings &amp; Connectivity</h2>
+          <button class="drawer-close" id="settingsClose">&times;</button>
+        </div>
+        <div class="drawer-body settings-body">
+          ${renderSettingsCard({
+            key: "inventory",
+            title: "Inventory API",
+            fields: [
+              ["URL", settings.inventory.url],
+              ["Auth mode", settings.inventory.authMode],
+              ["OS filter", settings.inventory.osFilter],
+            ],
+          })}
+          ${renderSettingsCard({
+            key: "endpoint-central",
+            title: "Endpoint Central API",
+            fields: [
+              ["Base URL", settings.endpointCentral.baseUrl],
+              ["Computers path", settings.endpointCentral.computersPath],
+              ["API key", settings.endpointCentral.apiKeyConfigured ? "configured" : "not set"],
+            ],
+          })}
+          ${renderSettingsCard({
+            key: "deployment",
+            title: "Deployment Readiness",
+            fields: [
+              ["Installer path", settings.deployment.installerLocalPath],
+              ["Fallback credential file", settings.deployment.credentialFileConfigured ? "configured" : "not set"],
+              ["Max concurrent deployments", settings.deployment.maxConcurrent],
+            ],
+          })}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("settingsOverlay").addEventListener("click", (e) => {
+    if (e.target.id === "settingsOverlay") closeSettingsDrawer();
+  });
+  document.getElementById("settingsClose").addEventListener("click", closeSettingsDrawer);
+
+  root.querySelectorAll("[data-test]").forEach((btn) => {
+    btn.addEventListener("click", () => runSettingsTest(btn.dataset.test));
+  });
+}
+
+function renderSettingsCard({ key, title, fields }) {
+  return `
+    <div class="settings-card">
+      <div class="settings-card-header">
+        <h3>${title}</h3>
+        <button class="btn btn-secondary btn-sm" data-test="${key}">Test Connection</button>
+      </div>
+      ${fields
+        .map(
+          ([label, value]) => `
+        <div class="settings-field">
+          <span>${label}</span>
+          <code>${value ? escapeHtml(String(value)) : "—"}</code>
+        </div>`
+        )
+        .join("")}
+      <div class="settings-result" data-result="${key}"></div>
+    </div>`;
+}
+
+function closeSettingsDrawer() {
+  document.getElementById("drawerRoot").innerHTML = "";
+}
+
+async function runSettingsTest(key) {
+  const btn = document.querySelector(`[data-test="${key}"]`);
+  const resultEl = document.querySelector(`[data-result="${key}"]`);
+  btn.disabled = true;
+  resultEl.innerHTML = `<span class="settings-status testing">Testing…</span>`;
+  try {
+    const res = await apiFetch(`/api/settings/test/${key}`, { method: "POST" });
+    const body = await res.json();
+    resultEl.innerHTML = renderSettingsResult(key, body);
+  } catch (e) {
+    resultEl.innerHTML = `<span class="settings-status fail">✗ ${escapeHtml(e.message)}</span>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderSettingsResult(key, body) {
+  if (key === "deployment") {
+    const { installerPath, credentialFile } = body.checks;
+    const lines = [];
+    lines.push(
+      installerPath.configured
+        ? `<span class="settings-status ${installerPath.exists ? "ok" : "fail"}">${installerPath.exists ? "✓" : "✗"} Installer ${
+            installerPath.exists ? "found" : "not found"
+          } at ${escapeHtml(installerPath.value)}</span>`
+        : `<span class="settings-status fail">✗ INSTALLER_LOCAL_PATH is not configured</span>`
+    );
+    if (credentialFile.configured) {
+      lines.push(
+        `<span class="settings-status ${credentialFile.exists ? "ok" : "fail"}">${credentialFile.exists ? "✓" : "✗"} Fallback credential file ${
+          credentialFile.exists ? "found" : "missing"
+        }</span>`
+      );
+    } else {
+      lines.push(`<span class="settings-status testing">No fallback credential file configured (per-asset inventory credentials only).</span>`);
+    }
+    return lines.join("<br/>");
+  }
+
+  if (body.ok) {
+    if (key === "inventory") {
+      return `<span class="settings-status ok">✓ Connected (${body.authMode}) — ${body.total} record(s) visible</span>`;
+    }
+    if (key === "endpoint-central") {
+      return `<span class="settings-status ok">✓ Connected — ${body.total} managed computer(s)</span>`;
+    }
+  }
+  return `<span class="settings-status fail">✗ ${escapeHtml(body.error || "Connection failed")}</span>`;
+}
+
+document.getElementById("settingsBtn").addEventListener("click", openSettingsDrawer);
+
+// ---------------------------------------------------------------------
 // Socket.IO live updates
 // ---------------------------------------------------------------------
 

@@ -12,16 +12,27 @@
 
 .PARAMETER CredentialFile
     Path to a PSCredential exported via Export-Clixml (see Setup-Credential.ps1).
+    Use this OR -Username, not both.
+
+.PARAMETER Username
+    Deployment account username for this specific target (e.g. a per-server
+    local admin account looked up from the inventory tool). When set, the
+    matching password is read as a single line from stdin - never from a
+    command-line argument or a file - so it never appears in the process
+    list or on disk. Use this OR -CredentialFile, not both.
 
 .NOTES
     Prints single-line progress markers ("STEP: ...", "STATUS: ...") that the
     Node.js backend parses to update job status and stream logs to the UI.
-    Keep these markers if you modify this script.
+    Keep these markers if you modify this script. Never Write-Output the
+    password/credential - anything printed here is streamed live to the web
+    UI and persisted to the job history on disk.
 #>
 param(
     [Parameter(Mandatory = $true)][string]$TargetHost,
     [Parameter(Mandatory = $true)][string]$InstallerPath,
-    [Parameter(Mandatory = $true)][string]$CredentialFile,
+    [string]$CredentialFile,
+    [string]$Username,
     [string]$RemoteStagingDir = "C$\Temp\EPCAgent",
     [bool]$InstallerIsMsi = $true,
     [string]$InstallArgsMsi = "/qn /norestart"
@@ -33,11 +44,27 @@ function Emit-Step($step) { Write-Output "STEP: $step" }
 function Emit-Status($status, $message) { Write-Output "STATUS: $status | $message" }
 
 try {
-    if (-not (Test-Path $CredentialFile)) {
-        Emit-Status "Failed" "Credential file not found at $CredentialFile. Run Setup-Credential.ps1 first."
+    if ($CredentialFile) {
+        if (-not (Test-Path $CredentialFile)) {
+            Emit-Status "Failed" "Credential file not found at $CredentialFile. Run Setup-Credential.ps1 first."
+            exit 1
+        }
+        $cred = Import-Clixml -Path $CredentialFile
+    }
+    elseif ($Username) {
+        $passwordLine = [Console]::In.ReadLine()
+        if ([string]::IsNullOrEmpty($passwordLine)) {
+            Emit-Status "Failed" "No password was supplied on stdin for user $Username."
+            exit 1
+        }
+        $securePassword = ConvertTo-SecureString -String $passwordLine -AsPlainText -Force
+        $cred = New-Object System.Management.Automation.PSCredential($Username, $securePassword)
+        Remove-Variable passwordLine -ErrorAction SilentlyContinue
+    }
+    else {
+        Emit-Status "Failed" "Either -CredentialFile or -Username (with a password on stdin) must be supplied."
         exit 1
     }
-    $cred = Import-Clixml -Path $CredentialFile
 
     Emit-Step "ConnectivityCheck"
     if (-not (Test-Connection -ComputerName $TargetHost -Count 1 -Quiet)) {

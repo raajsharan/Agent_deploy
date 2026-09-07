@@ -114,4 +114,56 @@ async function fetchInventoryServers() {
     .filter((row) => row.hostname && (!osFilter || (row.os || "").includes(osFilter)));
 }
 
-module.exports = { fetchInventoryServers };
+/**
+ * Fetches the plaintext password for one asset's deployment credential
+ * (asset_username is already present on the row from fetchInventoryServers).
+ *
+ * SECURITY: callers must treat the returned string as a live secret - never
+ * log it, persist it, or pass it as a command-line argument (visible in the
+ * process list). Pass it to a child process over stdin instead.
+ */
+async function fetchAssetPassword(assetId) {
+  const { url, authHeader, authScheme } = config.inventory;
+  if (!url) {
+    throw new Error("INVENTORY_API_URL is not configured. Set it in backend/.env");
+  }
+
+  const token = await getAuthToken();
+  const headers = { Accept: "application/json" };
+  if (token) headers[authHeader] = authScheme ? `${authScheme} ${token}` : token;
+
+  const passwordUrl = `${url.replace(/\/$/, "")}/${assetId}/password`;
+  const res = await fetch(passwordUrl, { headers });
+  if (!res.ok) {
+    throw new Error(`Inventory API credential request failed: ${res.status} ${res.statusText}`);
+  }
+  const body = await res.json();
+  if (!body.password) {
+    throw new Error("Inventory API response did not include a 'password' field.");
+  }
+  return body.password;
+}
+
+/**
+ * Lightweight connectivity check for the Settings panel: authenticates (or
+ * confirms the static token is accepted) and pulls a single row, without
+ * paginating through the full inventory.
+ */
+async function testConnection() {
+  const { url, authHeader, authScheme } = config.inventory;
+  if (!url) {
+    throw new Error("INVENTORY_API_URL is not configured.");
+  }
+
+  const usingLogin = !config.inventory.token;
+  const token = await getAuthToken();
+  const headers = { Accept: "application/json" };
+  if (token) headers[authHeader] = authScheme ? `${authScheme} ${token}` : token;
+
+  const body = await fetchPage(url, headers, 1, 1);
+  const total = Array.isArray(body) ? body.length : body.total ?? (body.items || body.data || body.results || []).length;
+
+  return { authMode: usingLogin ? "login" : "static-token", total };
+}
+
+module.exports = { fetchInventoryServers, fetchAssetPassword, testConnection };
