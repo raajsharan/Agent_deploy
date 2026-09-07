@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In · Agent Deployment Manager</title>
+  <link rel="stylesheet" href="/styles/netbrain-base.css" />
+  <link rel="stylesheet" href="/styles/login.css" />
+</head>
+<body>
+  <div class="login-shell">
+    <form class="login-card" id="loginForm">
+      <h1 class="login-title">Agent Deployment Manager</h1>
+      <p class="login-subtitle">Sign in to manage Endpoint Central deployments.</p>
+
+      <label class="login-field">
+        <span>Username</span>
+        <input type="text" id="username" name="username" autocomplete="username" required autofocus />
+      </label>
+
+      <label class="login-field">
+        <span>Password</span>
+        <input type="password" id="password" name="password" autocomplete="current-password" required />
+      </label>
+
+      <div class="login-error" id="loginError" style="display:none;"></div>
+
+      <button type="submit" class="btn btn-primary login-submit" id="loginSubmit">Sign In</button>
+    </form>
+  </div>
+
+  <script src="/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Deployment Manager · NetBrain</title>
+  <link rel="stylesheet" href="/styles/netbrain-base.css" />
+  <link rel="stylesheet" href="/styles/app.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <h1 class="app-title">Agent Deployment Manager</h1>
+        <div class="app-subtitle">Endpoint Central agent rollout across your Windows Server fleet</div>
+      </div>
+      <div class="app-header-account">
+        <span id="currentUsername" class="app-username"></span>
+        <button class="btn btn-secondary" id="logoutBtn">Sign Out</button>
+      </div>
+    </header>
+
+    <section class="stat-row" id="statRow"></section>
+
+    <div class="toolbar">
+      <input type="search" id="searchInput" placeholder="Search hostname or IP…" />
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="Installed">Installed</option>
+        <option value="Not Installed">Not Installed</option>
+        <option value="Running">Deploying</option>
+        <option value="Failed">Failed</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+      <div class="spacer"></div>
+      <button class="btn btn-secondary" id="refreshBtn">Refresh Inventory</button>
+      <button class="btn btn-primary" id="deployBtn" disabled>Deploy Selected</button>
+    </div>
+
+    <div class="table-card">
+      <table class="servers">
+        <thead>
+          <tr>
+            <th class="row-select"><input type="checkbox" id="selectAll" /></th>
+            <th>Hostname</th>
+            <th>IP Address</th>
+            <th>OS</th>
+            <th>Agent Status</th>
+            <th>Last Deployment</th>
+            <th>Last Contact</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="serverRows"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        No servers match your filters.
+      </div>
+    </div>
+  </div>
+
+  <div id="drawerRoot"></div>
+  <div id="toastRoot"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+/* ============================================================
+   NetBrain — Color tokens
+   Base palette sourced from the NetBrain Brand Style Guide v1.0.
+   Semantic aliases + neutral ramp + UI-state colors are layered
+   on top for product/component use.
+   ============================================================ */
+
+:root {
+  /* ---- Brand palette (verbatim from style guide) ---- */
+  --nb-purple:      #200B4E; /* NetBrain Purple — primary, deep */
+  --nb-lavender:    #876BCF; /* NetBrain Lavender — primary accent */
+  --nb-violet:      #8A3584; /* Violet — secondary */
+  --nb-blue:        #007DE7; /* Blue — secondary / links */
+  --nb-light-blue:  #78BDE3; /* Light Blue — secondary */
+  --nb-tangerine:   #FF7347; /* Tangerine — secondary / highlight */
+  --nb-citron:      #E3E887; /* Citron — secondary / highlight */
+  --nb-teal:        #00707A; /* Teal — secondary (from PPT master theme accent5) */
+  --nb-indigo:      #29235F; /* Deep Indigo — two-tone purple panels (PPT master dk2) */
+
+  /* ---- Brand tints (derived, for soft fills & surfaces) ---- */
+  --nb-purple-tint:    #ECE8F4; /* purple wash */
+  --nb-lavender-tint:  #EEEAF9;
+  --nb-blue-tint:      #E4F1FC;
+  --nb-tangerine-tint: #FFE8DF;
+  --nb-citron-tint:    #F7F8DE;
+  --nb-teal-tint:      #DCEDEE;
+
+  /* ---- Gradients (key gradients from style guide) ---- */
+  /* Purple → Lavender */
+  --nb-gradient-primary: linear-gradient(120deg, #200B4E 0%, #876BCF 100%); /* @kind other */
+  /* Purple → Light Blue */
+  --nb-gradient-cool:    linear-gradient(120deg, #200B4E 0%, #78BDE3 100%); /* @kind other */
+  --nb-gradient-violet:  linear-gradient(120deg, #200B4E 0%, #8A3584 100%); /* @kind other */
+
+  /* ---- Neutral ramp (cool gray; brand loves whitespace) ---- */
+  --nb-white:    #FFFFFF;
+  --nb-gray-50:  #F7F8FA;
+  --nb-gray-100: #EEF0F4;
+  --nb-gray-200: #DEE2E9;
+  --nb-gray-300: #C3C9D4;
+  --nb-gray-400: #9AA2B1;
+  --nb-gray-500: #6E7686;
+  --nb-gray-600: #4C5462;
+  --nb-gray-700: #343A45;
+  --nb-gray-800: #232831;
+  --nb-gray-900: #14171D;
+  --nb-black:    #000000;
+
+  /* ---- UI state colors (extension — not in style guide; flagged) ---- */
+  --nb-success: #1F8A5B;
+  --nb-success-tint: #E2F1EA;
+  --nb-warning: #FF7347; /* reuse Tangerine */
+  --nb-warning-tint: #FFE8DF;
+  --nb-danger:  #D7322E;
+  --nb-danger-tint: #FBE6E5;
+  --nb-info:    #007DE7; /* reuse Blue */
+  --nb-info-tint: #E4F1FC;
+
+  /* ============================================================
+     Semantic aliases — reference these in components, not raw hex
+     ============================================================ */
+  --color-bg:             var(--nb-white);
+  --color-surface:        var(--nb-white);
+  --color-surface-subtle: var(--nb-gray-50);
+  --color-surface-sunken: var(--nb-gray-100);
+  --color-surface-inverse:var(--nb-purple);
+
+  --color-heading:    var(--nb-purple);
+  --color-text:       var(--nb-gray-800);
+  --color-text-muted: var(--nb-gray-500);
+  --color-text-inverse: var(--nb-white);
+  --color-text-on-accent: var(--nb-white);
+
+  --color-primary:        var(--nb-purple);
+  --color-primary-hover:  #2E1268;
+  --color-primary-active: #160734;
+  --color-accent:         var(--nb-lavender);
+  --color-accent-hover:   #7458BE;
+  --color-link:           var(--nb-blue);
+  --color-link-hover:     #0067BE;
+
+  --color-border:        var(--nb-gray-200);
+  --color-border-strong: var(--nb-gray-300);
+  --color-focus-ring:    var(--nb-lavender);
+
+  --color-success: var(--nb-success);
+  --color-warning: var(--nb-warning);
+  --color-danger:  var(--nb-danger);
+  --color-info:    var(--nb-info);
+}
