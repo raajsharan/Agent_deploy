@@ -292,30 +292,33 @@ async function openSettingsDrawer() {
         </div>
         <div class="drawer-body settings-body">
           ${renderSettingsCard({
-            key: "inventory",
+            section: "inventory",
             title: "Inventory API",
             fields: [
-              ["URL", settings.inventory.url],
-              ["Auth mode", settings.inventory.authMode],
-              ["OS filter", settings.inventory.osFilter],
+              { key: "url", label: "API URL", value: settings.inventory.url },
+              { key: "loginUrl", label: "Login URL", value: settings.inventory.loginUrl },
+              { key: "username", label: "Username", value: settings.inventory.username },
+              { key: "password", label: "Password", type: "password", configured: settings.inventory.passwordConfigured },
+              { key: "token", label: "Static API token (alternative to login)", type: "password", configured: settings.inventory.tokenConfigured },
+              { key: "osFilter", label: "OS filter", value: settings.inventory.osFilter },
             ],
           })}
           ${renderSettingsCard({
-            key: "endpoint-central",
+            section: "endpoint-central",
             title: "Endpoint Central API",
             fields: [
-              ["Base URL", settings.endpointCentral.baseUrl],
-              ["Computers path", settings.endpointCentral.computersPath],
-              ["API key", settings.endpointCentral.apiKeyConfigured ? "configured" : "not set"],
+              { key: "baseUrl", label: "Base URL", value: settings.endpointCentral.baseUrl },
+              { key: "computersPath", label: "Computers path", value: settings.endpointCentral.computersPath },
+              { key: "apiKey", label: "API key", type: "password", configured: settings.endpointCentral.apiKeyConfigured },
             ],
           })}
           ${renderSettingsCard({
-            key: "deployment",
+            section: "deployment",
             title: "Deployment Readiness",
             fields: [
-              ["Installer path", settings.deployment.installerLocalPath],
-              ["Fallback credential file", settings.deployment.credentialFileConfigured ? "configured" : "not set"],
-              ["Max concurrent deployments", settings.deployment.maxConcurrent],
+              { key: "installerLocalPath", label: "Installer path", value: settings.deployment.installerLocalPath },
+              { key: "credentialFile", label: "Fallback credential file", value: settings.deployment.credentialFile },
+              { key: "maxConcurrent", label: "Max concurrent deployments", type: "number", value: settings.deployment.maxConcurrent },
             ],
           })}
         </div>
@@ -330,30 +333,76 @@ async function openSettingsDrawer() {
   root.querySelectorAll("[data-test]").forEach((btn) => {
     btn.addEventListener("click", () => runSettingsTest(btn.dataset.test));
   });
+  root.querySelectorAll("form[data-section]").forEach((form) => {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveSettingsSection(form.dataset.section, form);
+    });
+  });
 }
 
-function renderSettingsCard({ key, title, fields }) {
+function renderSettingsCard({ section, title, fields }) {
   return `
-    <div class="settings-card">
+    <form class="settings-card" data-section="${section}">
       <div class="settings-card-header">
         <h3>${title}</h3>
-        <button class="btn btn-secondary btn-sm" data-test="${key}">Test Connection</button>
+        <div class="settings-card-actions">
+          <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-test="${section}">Test Connection</button>
+        </div>
       </div>
-      ${fields
-        .map(
-          ([label, value]) => `
-        <div class="settings-field">
-          <span>${label}</span>
-          <code>${value ? escapeHtml(String(value)) : "—"}</code>
-        </div>`
-        )
-        .join("")}
-      <div class="settings-result" data-result="${key}"></div>
-    </div>`;
+      ${fields.map(renderSettingsField).join("")}
+      <div class="settings-save-status" data-save-status="${section}"></div>
+      <div class="settings-result" data-result="${section}"></div>
+    </form>`;
+}
+
+function renderSettingsField(f) {
+  if (f.type === "password") {
+    return `
+      <label class="settings-field-edit">
+        <span>${f.label}</span>
+        <input type="password" name="${f.key}" autocomplete="new-password"
+          placeholder="${f.configured ? "•••••••• (unchanged)" : "Not set"}" />
+      </label>`;
+  }
+  const value = f.value != null ? escapeHtml(String(f.value)) : "";
+  return `
+    <label class="settings-field-edit">
+      <span>${f.label}</span>
+      <input type="${f.type || "text"}" name="${f.key}" value="${value}" />
+    </label>`;
 }
 
 function closeSettingsDrawer() {
   document.getElementById("drawerRoot").innerHTML = "";
+}
+
+async function saveSettingsSection(section, form) {
+  const saveBtn = form.querySelector('button[type="submit"]');
+  const statusEl = form.querySelector(`[data-save-status="${section}"]`);
+  const payload = {};
+  new FormData(form).forEach((value, key) => {
+    if (value !== "") payload[key] = value; // blank = keep existing (handled server-side too)
+  });
+
+  saveBtn.disabled = true;
+  statusEl.innerHTML = `<span class="settings-status testing">Saving…</span>`;
+  try {
+    const res = await apiFetch(`/api/settings/${section}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Save failed.");
+    statusEl.innerHTML = `<span class="settings-status ok">✓ Saved</span>`;
+    form.querySelectorAll('input[type="password"]').forEach((input) => (input.value = ""));
+  } catch (e) {
+    statusEl.innerHTML = `<span class="settings-status fail">✗ ${escapeHtml(e.message)}</span>`;
+  } finally {
+    saveBtn.disabled = false;
+  }
 }
 
 async function runSettingsTest(key) {

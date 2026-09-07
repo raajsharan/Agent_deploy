@@ -166,4 +166,14 @@ async function testConnection() {
   return { authMode: usingLogin ? "login" : "static-token", total };
 }
 
-module.exports = { fetchInventoryServers, fetchAssetPassword, testConnection };
+/**
+ * Clears the cached login token, forcing the next request to log in again.
+ * Call this after the inventory URL/credentials are changed from the
+ * Settings UI, since the old cached token was issued for the old config.
+ */
+function resetAuthCache() {
+  cachedToken = null;
+  cachedTokenExpiresAtMs = 0;
+}
+
+module.exports = { fetchInventoryServers, fetchAssetPassword, testConnection, resetAuthCache };

@@ -1,5 +1,6 @@
 require("dotenv").config();
 const crypto = require("crypto");
+const settingsStore = require("./settingsStore");
 
 function required(name, fallback = undefined) {
   const value = process.env[name] ?? fallback;
@@ -60,6 +61,37 @@ const config = {
   },
 };
 
+// Apply any settings previously saved via the Settings UI on top of the
+// .env-derived defaults above, so they take effect immediately on startup.
+for (const section of ["inventory", "endpointCentral", "deployment"]) {
+  if (settingsStore.get()[section]) {
+    Object.assign(config[section], settingsStore.get()[section]);
+  }
+}
+
+/**
+ * Merges a partial update into one config section (e.g. "inventory"),
+ * applies it immediately - live, no restart needed - and persists it to
+ * backend/data/settings-overrides.json so it survives one. Keys with an
+ * empty/undefined value in `patch` are ignored, so leaving a secret field
+ * (password, API key) blank in the Settings UI means "keep the current
+ * value" rather than clearing it.
+ */
+function updateConfigSection(section, patch) {
+  const cleaned = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined || value === null || value === "") continue;
+    cleaned[key] = value;
+  }
+  if (Object.keys(cleaned).length === 0) return;
+
+  Object.assign(config[section], cleaned);
+
+  const overrides = settingsStore.get();
+  overrides[section] = { ...(overrides[section] || {}), ...cleaned };
+  settingsStore.save(overrides);
+}
+
 function warnIfMissing() {
   const missing = [];
   if (!config.inventory.url) missing.push("INVENTORY_API_URL");
@@ -74,4 +106,4 @@ function warnIfMissing() {
   }
 }
 
-module.exports = { config, warnIfMissing };
+module.exports = { config, warnIfMissing, updateConfigSection };

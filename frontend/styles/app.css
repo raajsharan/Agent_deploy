@@ -324,6 +324,12 @@ table.servers td.muted { color: var(--color-text-muted); font-size: 13px; }
   margin: 0;
 }
 
+.settings-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
 .btn-sm { padding: 6px 12px; font-size: 13px; }
 
 .settings-field {
@@ -345,6 +351,35 @@ table.servers td.muted { color: var(--color-text-muted); font-size: 13px; }
   word-break: break-all;
 }
 
+.settings-field-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  padding: 6px 0;
+}
+
+.settings-field-edit span {
+  color: var(--color-text-muted);
+}
+
+.settings-field-edit input {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+  width: 100%;
+}
+
+.settings-field-edit input:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.settings-save-status,
 .settings-result {
   margin-top: var(--space-3);
   font-size: 13px;
