@@ -1,31 +1,27 @@
 const express = require("express");
 const { fetchInventoryServers } = require("../services/inventoryService");
-const { fetchManagedComputers } = require("../services/endpointCentralService");
 const store = require("../store");
 
 const router = express.Router();
 
 /**
- * Pulls fresh data from the inventory API and Endpoint Central, merges them
- * keyed by hostname, layers in the most recent local deployment job for each
- * server, and caches the result so GET /api/servers is fast even if one of
- * the upstream systems is briefly unavailable.
+ * Pulls fresh data from the inventory API, layers in the most recent local
+ * deployment job for each server, and caches the result so GET /api/servers
+ * is fast even if the inventory API is briefly unavailable.
+ *
+ * Endpoint Central/ManageEngine agent status comes straight from the
+ * inventory tool's own asset record (manage_engine_installed) rather than a
+ * separate Endpoint Central API call - the inventory tool already tracks
+ * this, so there's no second system to keep in sync. Same for Nessus
+ * (tenable_installed). See inventoryService.fetchInventoryServers.
  */
 async function refreshServers() {
-  const [inventoryList, ecByHostname] = await Promise.all([
-    fetchInventoryServers(),
-    fetchManagedComputers().catch((err) => {
-      console.error("Endpoint Central fetch failed, continuing with inventory-only data:", err.message);
-      return {};
-    }),
-  ]);
-
+  const inventoryList = await fetchInventoryServers();
   const jobs = Object.values(store.getAllJobs());
 
   const merged = {};
   for (const inv of inventoryList) {
     const key = inv.hostname.toLowerCase();
-    const ec = ecByHostname[key];
 
     // Most recent job for this host, if any
     const hostJobs = jobs
@@ -42,9 +38,10 @@ async function refreshServers() {
       // inventoryService.fetchAssetPassword) - never the password itself.
       assetId: inv.raw?.id || null,
       credentialUsername: inv.raw?.asset_username || null,
-      agentStatus: ec ? ec.agentStatus : "Unknown",
-      agentInstalled: ec ? ec.agentInstalled : false,
-      lastContact: ec ? ec.lastContact : null,
+      agentStatus: inv.manageEngineInstalled ? "Installed" : "Not Installed",
+      agentInstalled: inv.manageEngineInstalled,
+      nessusStatus: inv.nessusInstalled ? "Installed" : "Not Installed",
+      nessusInstalled: inv.nessusInstalled,
       lastJob: lastJob
         ? { id: lastJob.id, status: lastJob.status, startedAt: lastJob.startedAt, finishedAt: lastJob.finishedAt }
         : null,

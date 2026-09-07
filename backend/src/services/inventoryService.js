@@ -135,6 +135,10 @@ async function fetchInventoryServers() {
       hostname: row[fieldHostname],
       ip: row[fieldIp],
       os: row[fieldOs],
+      // The inventory tool already tracks both agents directly on the asset
+      // record - no separate Endpoint Central/Tenable API call needed.
+      manageEngineInstalled: Boolean(row.manage_engine_installed),
+      nessusInstalled: Boolean(row.tenable_installed),
       raw: row,
     }))
     .filter((row) => row.hostname && (!osFilter || (row.os || "").includes(osFilter)));

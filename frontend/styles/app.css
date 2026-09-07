@@ -58,7 +58,7 @@ body {
 /* ---- Stat cards ---- */
 .stat-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: var(--space-4);
   margin-bottom: var(--space-8);
 }

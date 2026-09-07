@@ -139,13 +139,15 @@ function renderStats() {
   const running = state.servers.filter((s) => statusOf(s) === "Running" || statusOf(s) === "Queued").length;
   const failed = state.servers.filter((s) => statusOf(s) === "Failed").length;
   const notInstalled = state.servers.filter((s) => statusOf(s) === "Not Installed").length;
+  const nessusInstalled = state.servers.filter((s) => s.nessusStatus === "Installed").length;
 
   const cards = [
     { label: "Total Servers", value: total, accent: "" },
-    { label: "Agent Installed", value: installed, accent: "accent-success" },
+    { label: "ME Agent Installed", value: installed, accent: "accent-success" },
     { label: "Deploying", value: running, accent: "" },
     { label: "Failed", value: failed, accent: "accent-danger" },
-    { label: "Not Installed", value: notInstalled, accent: "accent-warning" },
+    { label: "ME Not Installed", value: notInstalled, accent: "accent-warning" },
+    { label: "Nessus Installed", value: nessusInstalled, accent: "accent-success" },
   ];
 
   document.getElementById("statRow").innerHTML = cards
@@ -188,6 +190,7 @@ function renderRows() {
           <td class="muted">${s.ip || "—"}</td>
           <td class="muted">${s.os || "—"}</td>
           <td><span class="badge ${badgeClassFor(status)}">${status}</span></td>
+          <td><span class="badge ${badgeClassFor(s.nessusStatus || "Unknown")}">${s.nessusStatus || "Unknown"}</span></td>
           <td class="muted">
             ${lastDeployText}
             ${lastJobId ? `<br/><button class="link-btn" data-jobid="${lastJobId}" data-action="viewlog">View log</button>` : ""}
