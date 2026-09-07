@@ -27,11 +27,22 @@ const config = {
     url: required("INVENTORY_API_URL"),
     authHeader: process.env.INVENTORY_AUTH_HEADER || "Authorization",
     authScheme: process.env.INVENTORY_AUTH_SCHEME ?? "Bearer",
+    // Static token, if your inventory API uses a fixed API key.
     token: process.env.INVENTORY_API_TOKEN,
+    // Login-flow auth, if your inventory API instead issues a short-lived
+    // token from a username/password login endpoint (e.g. a JWT). When
+    // INVENTORY_API_TOKEN is unset, inventoryService logs in here and caches
+    // the returned token until it's about to expire.
+    loginUrl: process.env.INVENTORY_LOGIN_URL,
+    username: process.env.INVENTORY_USERNAME,
+    password: process.env.INVENTORY_PASSWORD,
     fieldHostname: process.env.INVENTORY_FIELD_HOSTNAME || "hostname",
     fieldIp: process.env.INVENTORY_FIELD_IP || "ip_address",
     fieldOs: process.env.INVENTORY_FIELD_OS || "os",
     osFilter: process.env.INVENTORY_OS_FILTER || "Windows Server",
+    // Page size to request from paginated inventory APIs (ignored if the API
+    // returns a flat, non-paginated array).
+    pageSize: Number(process.env.INVENTORY_PAGE_SIZE || 200),
   },
 
   endpointCentral: {
