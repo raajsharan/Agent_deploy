@@ -139,6 +139,10 @@ async function fetchInventoryServers() {
       // record - no separate Endpoint Central/Tenable API call needed.
       manageEngineInstalled: Boolean(row.manage_engine_installed),
       nessusInstalled: Boolean(row.tenable_installed),
+      // Used to pick this server's pre-built, location-specific agent
+      // installer from a shared network location - see
+      // config.deployment.installerByLocation.
+      location: row.location || null,
       raw: row,
     }))
     .filter((row) => row.hostname && (!osFilter || (row.os || "").includes(osFilter)));

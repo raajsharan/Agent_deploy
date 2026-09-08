@@ -38,6 +38,7 @@ async function refreshServers() {
       // inventoryService.fetchAssetPassword) - never the password itself.
       assetId: inv.raw?.id || null,
       credentialUsername: inv.raw?.asset_username || null,
+      location: inv.location || null,
       agentStatus: inv.manageEngineInstalled ? "Installed" : "Not Installed",
       agentInstalled: inv.manageEngineInstalled,
       nessusStatus: inv.nessusInstalled ? "Installed" : "Not Installed",

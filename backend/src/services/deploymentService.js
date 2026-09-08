@@ -1,4 +1,5 @@
 const { spawn } = require("child_process");
+const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const { config } = require("../config");
@@ -101,6 +102,33 @@ async function resolveCredential(hostname) {
   );
 }
 
+/**
+ * Picks this server's installer: a pre-built, location-specific EXE from a
+ * shared network location when its inventory `location` has an entry in
+ * installerByLocation, otherwise the single fallback INSTALLER_LOCAL_PATH.
+ * See backend/scripts/Install-AgentRemote.ps1 and
+ * D:\Project\ManageEngineAgentDeployer (the reference desktop tool this
+ * per-location installer model was adapted from).
+ */
+function resolveInstallerPath(hostname) {
+  const server = store.getServers()[hostname];
+  const byLocation = config.deployment.installerByLocation || {};
+  const fromLocation = server && server.location ? byLocation[server.location] : null;
+  const installerPath = fromLocation || config.deployment.installerLocalPath;
+
+  if (!installerPath) {
+    throw new Error(
+      server && server.location
+        ? `No installer configured for location "${server.location}" and no fallback INSTALLER_LOCAL_PATH is set.`
+        : "No installer configured (server has no location on file, and INSTALLER_LOCAL_PATH is not set)."
+    );
+  }
+  if (!fs.existsSync(installerPath)) {
+    throw new Error(`Installer not found at ${installerPath}.`);
+  }
+  return installerPath;
+}
+
 function runSingleDeployment(job, io) {
   return new Promise(async (resolve) => {
     await store.updateJob(job.id, { status: "Running" });
@@ -114,11 +142,20 @@ function runSingleDeployment(job, io) {
       return resolve();
     }
 
+    let installerPath;
+    try {
+      installerPath = resolveInstallerPath(job.hostname);
+    } catch (err) {
+      await failJob(job, io, `Could not resolve an installer: ${err.message}`);
+      return resolve();
+    }
+
     const credentialArgs =
       credential.mode === "asset"
         ? ["-Username", credential.username]
         : ["-CredentialFile", credential.credentialFile];
 
+    const { deployment } = config;
     const args = [
       "-NoProfile",
       "-NonInteractive",
@@ -129,9 +166,22 @@ function runSingleDeployment(job, io) {
       "-TargetHost",
       job.hostname,
       "-InstallerPath",
-      config.deployment.installerLocalPath,
+      installerPath,
       ...credentialArgs,
+      "-Method",
+      deployment.method || "Auto",
+      "-RemoteDir",
+      deployment.remoteDir,
+      "-ServiceName",
+      deployment.serviceName,
+      "-PsExecPath",
+      deployment.psexecPath,
+      "-WinRmPort",
+      String(deployment.winrmPort),
     ];
+    if (deployment.installArgs) args.push("-InstallArgs", deployment.installArgs);
+    if (deployment.useHttps) args.push("-UseHttps");
+    if (deployment.skipCertValidation) args.push("-SkipCertValidation");
 
     const child = spawn("powershell.exe", args, { windowsHide: true });
 

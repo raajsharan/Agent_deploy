@@ -55,11 +55,47 @@ const config = {
   },
 
   deployment: {
+    // Fallback installer, used for any server whose location has no entry
+    // in installerByLocation below.
     installerLocalPath: process.env.INSTALLER_LOCAL_PATH,
     credentialFile: process.env.DEPLOY_CREDENTIAL_FILE,
     maxConcurrent: Number(process.env.MAX_CONCURRENT_DEPLOYMENTS || 5),
+    // Per-location pre-built installer .exe, keyed by the inventory tool's
+    // "location" field (e.g. "Burlington", "Toronto") - each is a
+    // ManageEngine-customized installer for that branch's distribution
+    // server, built once via ME's own agent-customization console feature.
+    // Point these at a shared network location every deployment-backend
+    // instance and target server can reach. JSON object string, e.g.
+    // {"Burlington":"\\\\fileshare\\Agents\\BurlingtonLocalOffice_Agent.exe"}
+    installerByLocation: parseJsonMap(process.env.DEPLOY_INSTALLER_BY_LOCATION),
+    // Remote execution method: Auto (try RemComStyle, then WinRM, then
+    // PsExec, then WMI) or one specific method.
+    method: process.env.DEPLOY_METHOD || "Auto",
+    // Extra silent-install args appended to the installer invocation. Left
+    // blank for a pre-customized EXE installer (it's already silent by
+    // design); MSI installers default to "/qn /norestart" if left blank.
+    installArgs: process.env.DEPLOY_INSTALL_ARGS || "",
+    remoteDir: process.env.DEPLOY_REMOTE_DIR || "C:\\Windows\\Temp",
+    // Exact Windows service name the installed agent registers as - used to
+    // verify a successful install regardless of which transport ran it.
+    serviceName: process.env.DEPLOY_SERVICE_NAME || "ManageEngine UEMS - Agent",
+    psexecPath: process.env.DEPLOY_PSEXEC_PATH || "C:\\Sysinternals\\PsExec.exe",
+    winrmPort: Number(process.env.DEPLOY_WINRM_PORT || 5985),
+    useHttps: process.env.DEPLOY_WINRM_USE_HTTPS === "true",
+    skipCertValidation: process.env.DEPLOY_SKIP_CERT_VALIDATION === "true",
   },
 };
+
+function parseJsonMap(raw) {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    console.warn("[config] DEPLOY_INSTALLER_BY_LOCATION is not valid JSON - ignoring it.");
+    return {};
+  }
+}
 
 // Apply any settings previously saved via the Settings UI on top of the
 // .env-derived defaults above, so they take effect immediately on startup.

@@ -319,8 +319,28 @@ async function openSettingsDrawer() {
             section: "deployment",
             title: "Deployment Readiness",
             fields: [
-              { key: "installerLocalPath", label: "Installer path", value: settings.deployment.installerLocalPath },
+              { key: "installerLocalPath", label: "Fallback installer path", value: settings.deployment.installerLocalPath },
+              {
+                key: "installerByLocation",
+                label: "Per-location installer (one per line: Location = path, e.g. a shared \\\\server\\share\\... path)",
+                type: "textarea",
+                value: settings.deployment.installerByLocation,
+              },
               { key: "credentialFile", label: "Fallback credential file", value: settings.deployment.credentialFile },
+              {
+                key: "method",
+                label: "Deployment method",
+                type: "select",
+                value: settings.deployment.method,
+                options: ["Auto", "RemComStyle", "WinRM", "PsExec", "WMI"],
+              },
+              { key: "installArgs", label: "Extra silent-install args (blank = installer's own default)", value: settings.deployment.installArgs },
+              { key: "remoteDir", label: "Remote staging directory", value: settings.deployment.remoteDir },
+              { key: "serviceName", label: "Installed agent's Windows service name", value: settings.deployment.serviceName },
+              { key: "psexecPath", label: "PsExec.exe path (needed for PsExec/Auto)", value: settings.deployment.psexecPath },
+              { key: "winrmPort", label: "WinRM port", type: "number", value: settings.deployment.winrmPort },
+              { key: "useHttps", label: "Use HTTPS for WinRM", type: "checkbox", checked: settings.deployment.useHttps },
+              { key: "skipCertValidation", label: "Skip WinRM certificate validation", type: "checkbox", checked: settings.deployment.skipCertValidation },
               { key: "maxConcurrent", label: "Max concurrent deployments", type: "number", value: settings.deployment.maxConcurrent },
             ],
           })}
@@ -370,6 +390,31 @@ function renderSettingsField(f) {
         <span>${f.label}</span>
         <input type="password" name="${f.key}" autocomplete="new-password"
           placeholder="${f.configured ? "•••••••• (unchanged)" : "Not set"}" />
+      </label>`;
+  }
+  if (f.type === "checkbox") {
+    return `
+      <label class="settings-field-checkbox">
+        <input type="checkbox" name="${f.key}" ${f.checked ? "checked" : ""} />
+        <span>${f.label}</span>
+      </label>`;
+  }
+  if (f.type === "select") {
+    const optionsHtml = (f.options || [])
+      .map((opt) => `<option value="${escapeHtml(opt)}" ${opt === f.value ? "selected" : ""}>${escapeHtml(opt)}</option>`)
+      .join("");
+    return `
+      <label class="settings-field-edit">
+        <span>${f.label}</span>
+        <select name="${f.key}">${optionsHtml}</select>
+      </label>`;
+  }
+  if (f.type === "textarea") {
+    const value = f.value != null ? escapeHtml(String(f.value)) : "";
+    return `
+      <label class="settings-field-edit">
+        <span>${f.label}</span>
+        <textarea name="${f.key}" rows="3">${value}</textarea>
       </label>`;
   }
   const value = f.value != null ? escapeHtml(String(f.value)) : "";
@@ -434,6 +479,11 @@ async function saveSettingsSection(section, form) {
   new FormData(form).forEach((value, key) => {
     if (value !== "") payload[key] = value; // blank = keep existing (handled server-side too)
   });
+  // An unchecked checkbox contributes nothing to FormData at all, so read
+  // checkbox state explicitly - otherwise there'd be no way to save "off".
+  form.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    payload[input.name] = input.checked;
+  });
 
   saveBtn.disabled = true;
   statusEl.innerHTML = `<span class="settings-status testing">Saving…</span>`;
@@ -489,6 +539,13 @@ function renderSettingsResult(key, body) {
       );
     } else {
       lines.push(`<span class="settings-status testing">No fallback credential file configured (per-asset inventory credentials only).</span>`);
+    }
+    for (const loc of body.checks.installerByLocation || []) {
+      lines.push(
+        `<span class="settings-status ${loc.exists ? "ok" : "fail"}">${loc.exists ? "✓" : "✗"} ${escapeHtml(loc.location)}: ${
+          loc.exists ? "found" : "not found"
+        } (${escapeHtml(loc.path)})</span>`
+      );
     }
     return lines.join("<br/>");
   }

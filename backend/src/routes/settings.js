@@ -18,10 +18,54 @@ const SECTION_CONFIG_KEY = {
 const EDITABLE_FIELDS = {
   inventory: ["url", "loginUrl", "username", "password", "osFilter", "token"],
   "endpoint-central": ["baseUrl", "computersPath", "apiKey"],
-  deployment: ["installerLocalPath", "credentialFile", "maxConcurrent"],
+  deployment: [
+    "installerLocalPath",
+    "credentialFile",
+    "maxConcurrent",
+    "installerByLocation",
+    "method",
+    "installArgs",
+    "remoteDir",
+    "serviceName",
+    "psexecPath",
+    "winrmPort",
+    "useHttps",
+    "skipCertValidation",
+  ],
 };
 
-const NUMBER_FIELDS = new Set(["maxConcurrent"]);
+const NUMBER_FIELDS = new Set(["maxConcurrent", "winrmPort"]);
+const BOOLEAN_FIELDS = new Set(["useHttps", "skipCertValidation"]);
+
+/**
+ * Parses the Settings UI's "one location per line: Location = path" textarea
+ * into the { location: path } object config.deployment.installerByLocation
+ * actually uses.
+ */
+function parseInstallerByLocationText(text) {
+  const map = {};
+  for (const rawLine of String(text).split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const eqIndex = line.indexOf("=");
+    if (eqIndex === -1) {
+      throw new Error(`Invalid line (expected "Location = path"): "${line}"`);
+    }
+    const location = line.slice(0, eqIndex).trim();
+    const installerPath = line.slice(eqIndex + 1).trim();
+    if (!location || !installerPath) {
+      throw new Error(`Invalid line (expected "Location = path"): "${line}"`);
+    }
+    map[location] = installerPath;
+  }
+  return map;
+}
+
+function formatInstallerByLocationText(map) {
+  return Object.entries(map || {})
+    .map(([location, installerPath]) => `${location} = ${installerPath}`)
+    .join("\n");
+}
 
 /**
  * Non-secret summary of the current configuration, for display/editing in
@@ -49,6 +93,15 @@ router.get("/", (req, res) => {
       credentialFile: config.deployment.credentialFile || null,
       credentialFileConfigured: Boolean(config.deployment.credentialFile),
       maxConcurrent: config.deployment.maxConcurrent,
+      installerByLocation: formatInstallerByLocationText(config.deployment.installerByLocation),
+      method: config.deployment.method,
+      installArgs: config.deployment.installArgs || "",
+      remoteDir: config.deployment.remoteDir,
+      serviceName: config.deployment.serviceName,
+      psexecPath: config.deployment.psexecPath,
+      winrmPort: config.deployment.winrmPort,
+      useHttps: config.deployment.useHttps,
+      skipCertValidation: config.deployment.skipCertValidation,
     },
   });
 });
@@ -69,12 +122,20 @@ router.put("/:section", (req, res) => {
   for (const field of allowedFields) {
     if (!(field in body)) continue;
     let value = body[field];
-    if (NUMBER_FIELDS.has(field)) {
+    if (field === "installerByLocation") {
+      try {
+        value = parseInstallerByLocationText(value);
+      } catch (err) {
+        return res.status(400).json({ error: err.message });
+      }
+    } else if (NUMBER_FIELDS.has(field)) {
       if (value === "" || value === null || value === undefined) continue;
       value = Number(value);
       if (Number.isNaN(value)) {
         return res.status(400).json({ error: `'${field}' must be a number.` });
       }
+    } else if (BOOLEAN_FIELDS.has(field)) {
+      value = Boolean(value);
     }
     patch[field] = value;
   }
@@ -114,7 +175,7 @@ router.post("/test/endpoint-central", async (req, res) => {
 });
 
 router.post("/test/deployment", async (req, res) => {
-  const { installerLocalPath, credentialFile } = config.deployment;
+  const { installerLocalPath, credentialFile, installerByLocation } = config.deployment;
   const checks = {};
 
   checks.installerPath = installerLocalPath
@@ -125,7 +186,14 @@ router.post("/test/deployment", async (req, res) => {
     ? { configured: true, exists: fs.existsSync(credentialFile), value: credentialFile }
     : { configured: false, exists: false };
 
-  const ok = checks.installerPath.configured && checks.installerPath.exists;
+  checks.installerByLocation = Object.entries(installerByLocation || {}).map(([location, installerPath]) => ({
+    location,
+    path: installerPath,
+    exists: fs.existsSync(installerPath),
+  }));
+
+  const perLocationOk = checks.installerByLocation.every((c) => c.exists);
+  const ok = checks.installerPath.configured && checks.installerPath.exists && perLocationOk;
   res.json({ ok, checks });
 });
 

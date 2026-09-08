@@ -373,7 +373,9 @@ table.servers td.muted { color: var(--color-text-muted); font-size: 13px; }
   color: var(--color-text-muted);
 }
 
-.settings-field-edit input {
+.settings-field-edit input,
+.settings-field-edit select,
+.settings-field-edit textarea {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 13px;
   padding: 7px 10px;
@@ -382,11 +384,30 @@ table.servers td.muted { color: var(--color-text-muted); font-size: 13px; }
   background: var(--color-surface);
   color: var(--color-text);
   width: 100%;
+  box-sizing: border-box;
 }
 
-.settings-field-edit input:focus-visible {
+.settings-field-edit textarea {
+  resize: vertical;
+}
+
+.settings-field-edit input:focus-visible,
+.settings-field-edit select:focus-visible,
+.settings-field-edit textarea:focus-visible {
   outline: none;
   box-shadow: var(--shadow-focus);
+}
+
+.settings-field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+.settings-field-checkbox span {
+  color: var(--color-text);
 }
 
 .settings-save-status,
